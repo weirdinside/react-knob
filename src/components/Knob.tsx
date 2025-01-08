@@ -6,13 +6,11 @@ export default function Knob({
   setRotation,
   minAngle = -180,
   maxAngle = 180,
-  zeroPoint = 0
 }: {
   rotation: number;
   setRotation: (arg0: number) => void;
   minAngle?: number;
   maxAngle?: number;
-  zeroPoint: number;
 }) {
   const [knobRotation, setKnobRotation] = useState<number>(0);
   const [isClicked, setIsClicked] = useState<boolean>(false);
