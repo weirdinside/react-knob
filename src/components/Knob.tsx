@@ -4,11 +4,15 @@ import "./Knob.css";
 export default function Knob({
   rotation = 0,
   setRotation,
-  limit = 360,
+  minAngle = -180,
+  maxAngle = 180,
+  zeroPoint = 0
 }: {
   rotation: number;
   setRotation: (arg0: number) => void;
-  limit?: number;
+  minAngle?: number;
+  maxAngle?: number;
+  zeroPoint: number;
 }) {
   const [knobRotation, setKnobRotation] = useState<number>(0);
   const [isClicked, setIsClicked] = useState<boolean>(false);
@@ -19,22 +23,23 @@ export default function Knob({
 
   const knobRef = useRef<HTMLDivElement>(null);
 
-  function clampRotation(value: number) {
-    return Math.min(Math.max(value, -limit), limit);
+  function clampRotation(value: number){
+    return Math.min(Math.max(value, minAngle), maxAngle)
   }
 
   function calculateDegree(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (knobRef.current) {
-      const x1 = knobRef.current.offsetLeft + knobRef.current.offsetWidth / 2;
-      const y1 = knobRef.current.offsetTop + knobRef.current.offsetHeight / 2;
+      const x1 = knobRef.current.offsetLeft + knobRef.current.offsetWidth / 2; // xcoord center of knob
+      const y1 = knobRef.current.offsetTop + knobRef.current.offsetHeight / 2; // ycoord center of knob
 
-      const x2 = e.clientX;
-      const y2 = e.clientY;
+      const x2 = e.clientX; // xcoord mousePos
+      const y2 = e.clientY; // ycoord mousePos
 
-      const deltaY = y1 - y2;
-      const deltaX = x1 - x2;
+      const deltaY = y1 - y2; // diff between y(center of knob - mousePos)
+      const deltaX = x1 - x2; // diff between x(center of knob - mousePos)
 
-      const rad = Math.atan2(deltaY, deltaX);
+      const rad = Math.atan2(deltaY, deltaX)
+
       let deg = rad * (180 / Math.PI);
 
       return deg;
@@ -49,7 +54,7 @@ export default function Knob({
   }
 
   useEffect(() => {
-    setRotation(knobRotation);
+    setRotation(knobRotation + 90);
   }, [knobRotation]);
 
   useEffect(function readRotationOnLoad() {
