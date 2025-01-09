@@ -11,6 +11,7 @@ export default function Knob({
   setRotation: (arg0: number) => void;
   minAngle?: number;
   maxAngle?: number;
+  zeroAngleOffset?: number;
 }) {
   const [knobRotation, setKnobRotation] = useState<number>(0);
   const [isClicked, setIsClicked] = useState<boolean>(false);
@@ -21,8 +22,8 @@ export default function Knob({
 
   const knobRef = useRef<HTMLDivElement>(null);
 
-  function clampRotation(value: number){
-    return Math.min(Math.max(value, minAngle), maxAngle)
+  function clampRotation(value: number) {
+    return Math.min(Math.max(value, minAngle), maxAngle);
   }
 
   function calculateDegree(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
@@ -36,9 +37,13 @@ export default function Knob({
       const deltaY = y1 - y2; // diff between y(center of knob - mousePos)
       const deltaX = x1 - x2; // diff between x(center of knob - mousePos)
 
-      const rad = Math.atan2(deltaY, deltaX)
+      const rad = Math.atan2(deltaY, deltaX);
 
-      let deg = rad * (180 / Math.PI);
+      // convert radians to degree
+
+      let deg = ((rad * (180 / Math.PI) + 90 + 360) % 360) - 180;
+
+      // let deg = rad * (180 / Math.PI);
 
       return deg;
     }
@@ -47,12 +52,12 @@ export default function Knob({
 
   function handleRotate(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (isClicked && knobRef.current) {
-      setKnobRotation(clampRotation(calculateDegree(e)) - 90);
+      setKnobRotation(clampRotation(calculateDegree(e)));
     }
   }
 
   useEffect(() => {
-    setRotation(knobRotation + 90);
+    setRotation(knobRotation);
   }, [knobRotation]);
 
   useEffect(function readRotationOnLoad() {
@@ -63,7 +68,7 @@ export default function Knob({
     function setDimensionsOnResize() {
       setWindowDimensions({ x: window.innerWidth, y: window.innerHeight });
     },
-    [window.innerHeight, window.innerWidth]
+    [window.innerHeight, window.innerWidth],
   );
 
   return (

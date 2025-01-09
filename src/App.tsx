@@ -18,16 +18,13 @@ function App() {
         ></Knob>
         <Knob
           minAngle={-140}
-          maxAngle={140}
+          maxAngle={180}
           rotation={rotation2}
           setRotation={setRotation2}
         ></Knob>
-        <Knob
-          rotation={rotation3}
-          setRotation={setRotation3}
-        ></Knob>
+        <Knob rotation={rotation3} setRotation={setRotation3}></Knob>
       </div>
-      {Math.round(rotation1)} ////// {Math.round(rotation2)} //////
+      {Math.round(rotation1)} ////// {Math.round(rotation2)} //////{" "}
       {Math.round(rotation3)}
     </div>
   );
