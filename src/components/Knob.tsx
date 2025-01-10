@@ -1,17 +1,28 @@
 import { useState, useEffect, useRef } from "react";
 import "./Knob.css";
 
+// WHAT IS THIS COMPONENT?
+// react-knob is a headless knob that allows devs to implement a range input with the UX of a knob.
+// the goal is to keep the DX simple and create a controlled input that a developer can pass a state and state setter into
+
+// developer should provide minValue and maxValue, startAngle and endAngle
+
 export default function Knob({
-  rotation = 0,
+  startValue = 0,
+  endValue = 12,
+  defaultValue = 0,
   setRotation,
-  minAngle = -180,
-  maxAngle = 180,
+  startAngle = -180,
+  endAngle = startAngle + 360,
+  snap = false
 }: {
-  rotation: number;
+  startValue: number;
+  endValue: number;
+  defaultValue: number;
   setRotation: (arg0: number) => void;
-  minAngle?: number;
-  maxAngle?: number;
-  zeroAngleOffset?: number;
+  startAngle: number;
+  endAngle?: number;
+  snap: boolean;
 }) {
   const [knobRotation, setKnobRotation] = useState<number>(0);
   const [isClicked, setIsClicked] = useState<boolean>(false);
@@ -19,11 +30,13 @@ export default function Knob({
     x: number;
     y: number;
   }>({ x: 0, y: 0 });
+  const [value, setValue] = useState<number>(defaultValue);
 
   const knobRef = useRef<HTMLDivElement>(null);
 
-  function clampRotation(value: number) {
-    return Math.min(Math.max(value, minAngle), maxAngle);
+  function validateAngle(){
+    if(startAngle + 360 < endAngle) return;
+    else endAngle = startAngle + 360; 
   }
 
   function calculateDegree(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
@@ -39,11 +52,9 @@ export default function Knob({
 
       const rad = Math.atan2(deltaY, deltaX);
 
-      // convert radians to degree
-
-      let deg = ((rad * (180 / Math.PI) + 90 + 360) % 360) - 180;
-
-      // let deg = rad * (180 / Math.PI);
+      const offset = 180 - startAngle;
+      const shift = startAngle;
+      let deg = ((rad * (180 / Math.PI) + 90 + offset) % 360) + shift;
 
       return deg;
     }
@@ -52,23 +63,30 @@ export default function Knob({
 
   function handleRotate(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (isClicked && knobRef.current) {
-      setKnobRotation(clampRotation(calculateDegree(e)));
+      setKnobRotation(calculateDegree(e));
     }
   }
 
-  useEffect(() => {
+  useEffect(function setCalculatedValue(){
+    validateAngle()
+        // convert current angle to a fraction (knobRotation / maxAngle - minAngle)
+    // assign the fraction to a const, then do ((maxValue - minValue) * fraction) + minValue
+    const amountRotated = knobRotation / (endAngle - startAngle)
+    const currentValue = startValue + ((endValue - startValue) * amountRotated)
+
     setRotation(knobRotation);
-  }, [knobRotation]);
+  }, [knobRotation, startAngle, endAngle]);
 
   useEffect(function readRotationOnLoad() {
-    setKnobRotation(rotation);
+
+    setKnobRotation(knobRotation);
   }, []);
 
   useEffect(
     function setDimensionsOnResize() {
       setWindowDimensions({ x: window.innerWidth, y: window.innerHeight });
     },
-    [window.innerHeight, window.innerWidth],
+    [window.innerHeight, window.innerWidth]
   );
 
   return (
@@ -82,6 +100,7 @@ export default function Knob({
       }}
       className="knob"
     >
+      <input style={{opacity: '0', position: 'absolute', visibility: 'hidden'}} min={startValue} max={endValue} type="range"/>
       <div className="knob__outline"></div>
       <div style={{ rotate: `${knobRotation}deg` }} className="knob__indicator">
         .
