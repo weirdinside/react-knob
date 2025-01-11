@@ -8,21 +8,28 @@ import "./Knob.css";
 // developer should provide minValue and maxValue, startAngle and endAngle
 
 export default function Knob({
+  value,
+  setValue,
   startValue = 0,
   endValue = 12,
-  defaultValue = 0,
-  setRotation,
+  defaultValue = startValue,
   startAngle = -180,
   endAngle = startAngle + 360,
-  snap = false
+  snap = false,
+  snapInterval,
 }: {
+  value: number;
+  setValue: (arg0: number) => void;
+
   startValue: number;
   endValue: number;
-  defaultValue: number;
-  setRotation: (arg0: number) => void;
+  defaultValue?: number;
+
   startAngle: number;
   endAngle?: number;
-  snap: boolean;
+
+  snap?: boolean;
+  snapInterval?: number;
 }) {
   const [knobRotation, setKnobRotation] = useState<number>(0);
   const [isClicked, setIsClicked] = useState<boolean>(false);
@@ -30,13 +37,23 @@ export default function Knob({
     x: number;
     y: number;
   }>({ x: 0, y: 0 });
-  const [value, setValue] = useState<number>(defaultValue);
 
   const knobRef = useRef<HTMLDivElement>(null);
 
-  function validateAngle(){
-    if(startAngle + 360 < endAngle) return;
-    else endAngle = startAngle + 360; 
+  function validateAngle() {
+    // if the startAngle + 360 is >= than the endAngle, we're safe: 0-359 can be the endAngle without problems
+    if (startAngle + 360 >= endAngle) return;
+    else endAngle = startAngle + 360; // otherwise, we're maxed out. so set the endAngle to startAngle + 360
+  }
+
+  function clampRotation(value: number) {
+    return Math.min(Math.max(value, startAngle), endAngle);
+    // this is fine, but results in some weird sticky behavior when going out of bounds on the lower limit.
+    // maybe do something where you can't go out of bounds?
+  }
+
+  function normalizeAngle(angle: number) {
+    return ((angle % 360) + 360) % 360;
   }
 
   function calculateDegree(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
@@ -55,7 +72,6 @@ export default function Knob({
       const offset = 180 - startAngle;
       const shift = startAngle;
       let deg = ((rad * (180 / Math.PI) + 90 + offset) % 360) + shift;
-
       return deg;
     }
     return 0;
@@ -63,30 +79,36 @@ export default function Knob({
 
   function handleRotate(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (isClicked && knobRef.current) {
-      setKnobRotation(calculateDegree(e));
+      setKnobRotation(clampRotation(calculateDegree(e)));
     }
   }
 
-  useEffect(function setCalculatedValue(){
-    validateAngle()
-        // convert current angle to a fraction (knobRotation / maxAngle - minAngle)
-    // assign the fraction to a const, then do ((maxValue - minValue) * fraction) + minValue
-    const amountRotated = knobRotation / (endAngle - startAngle)
-    const currentValue = startValue + ((endValue - startValue) * amountRotated)
+  useEffect(
+    function setCalculatedValue() {
+      validateAngle();
+      // normalize knobRotation to 360deg AND set zeroAngle prior to using in calculation:
+      // convert angle to a fraction (rotation / maxA - minA)
+      // assign the fraction to a const, then do ((maxV - minV) * fraction) + minValue
 
-    setRotation(knobRotation);
-  }, [knobRotation, startAngle, endAngle]);
+      const normalizedRotation = normalizeAngle(knobRotation - startAngle);
+      const amountRotated = normalizedRotation / (endAngle - startAngle);
+      const currentValue = startValue + (endValue - startValue) * amountRotated;
+
+      setValue(currentValue);
+      setKnobRotation(knobRotation);
+    },
+    [knobRotation, startAngle, endAngle],
+  );
 
   useEffect(function readRotationOnLoad() {
-
-    setKnobRotation(knobRotation);
+    setValue(defaultValue);
   }, []);
 
   useEffect(
     function setDimensionsOnResize() {
       setWindowDimensions({ x: window.innerWidth, y: window.innerHeight });
     },
-    [window.innerHeight, window.innerWidth]
+    [window.innerHeight, window.innerWidth],
   );
 
   return (
@@ -100,7 +122,12 @@ export default function Knob({
       }}
       className="knob"
     >
-      <input style={{opacity: '0', position: 'absolute', visibility: 'hidden'}} min={startValue} max={endValue} type="range"/>
+      <input
+        style={{ opacity: "0", position: "absolute", visibility: "hidden" }}
+        min={startValue}
+        max={endValue}
+        type="range"
+      />
       <div className="knob__outline"></div>
       <div style={{ rotate: `${knobRotation}deg` }} className="knob__indicator">
         .
