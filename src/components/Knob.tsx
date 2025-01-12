@@ -79,6 +79,7 @@ export default function Knob({
 
   function handleRotate(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (isClicked && knobRef.current) {
+      // check for out of bounds values here before clamping
       setKnobRotation(clampRotation(calculateDegree(e)));
     }
   }
