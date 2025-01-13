@@ -18,10 +18,9 @@ function App() {
           startValue={0}
           endValue={12}
           startAngle={0}
-          endAngle={180}
-        ></Knob>
+        />
       </div>
-      {Math.round(value1)}
+      {value1}
       <GPTKnob
         startValue={0}
         endValue={100}
@@ -37,15 +36,14 @@ function App() {
       />
       {value2}
       <ClaudeKnob
+        startValue={0}
+        endValue={100}
         value={value3}
-        onChange={setValue3}
-        min={0}
-        max={100}
-        step={5} // Optional: for stepped increments
-        startAngle={-135}
-        endAngle={135}
-        size={150}
-        color="#2563eb"
+        setValue={setValue3}
+        snap={true}
+        snapInterval={5}
+        label="Volume"
+        onChange={(newValue) => console.log("Value changed:", newValue)}
       />
     </div>
   );

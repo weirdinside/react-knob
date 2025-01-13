@@ -15,21 +15,20 @@ export default function Knob({
   defaultValue = startValue,
   startAngle = -180,
   endAngle = startAngle + 360,
-  snap = false,
-  snapInterval,
+  snap = true,
+  snapValue = false,
+  step = 1,
 }: {
   value: number;
   setValue: (arg0: number) => void;
-
   startValue: number;
   endValue: number;
   defaultValue?: number;
-
   startAngle: number;
   endAngle?: number;
-
   snap?: boolean;
-  snapInterval?: number;
+  snapValue?: boolean;
+  step?: number;
 }) {
   const [knobRotation, setKnobRotation] = useState<number>(0);
   const [isClicked, setIsClicked] = useState<boolean>(false);
@@ -41,15 +40,13 @@ export default function Knob({
   const knobRef = useRef<HTMLDivElement>(null);
 
   function validateAngle() {
-    // if the startAngle + 360 is >= than the endAngle, we're safe: 0-359 can be the endAngle without problems
+    // if the startAngle + 360 is >= than the endAngle, we're safe: 0-360 can be the endAngle without problems
     if (startAngle + 360 >= endAngle) return;
     else endAngle = startAngle + 360; // otherwise, we're maxed out. so set the endAngle to startAngle + 360
   }
 
   function clampRotation(value: number) {
     return Math.min(Math.max(value, startAngle), endAngle);
-    // this is fine, but results in some weird sticky behavior when going out of bounds on the lower limit.
-    // maybe do something where you can't go out of bounds?
   }
 
   function normalizeAngle(angle: number) {
@@ -79,34 +76,37 @@ export default function Knob({
 
   function handleRotate(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (isClicked && knobRef.current) {
-      // check for out of bounds values here before clamping
-      setKnobRotation(clampRotation(calculateDegree(e)));
+      if (calculateDegree(e) > endAngle) return;
+      return setKnobRotation(clampRotation(calculateDegree(e)));
     }
   }
-
-  useEffect(
-    function setCalculatedValue() {
-      validateAngle();
-      // normalize knobRotation to 360deg AND set zeroAngle prior to using in calculation:
-      // convert angle to a fraction (rotation / maxA - minA)
-      // assign the fraction to a const, then do ((maxV - minV) * fraction) + minValue
-
-      const normalizedRotation = normalizeAngle(knobRotation - startAngle);
-      const amountRotated = normalizedRotation / (endAngle - startAngle);
-      const currentValue = startValue + (endValue - startValue) * amountRotated;
-
-      setValue(currentValue);
-      setKnobRotation(knobRotation);
-    },
-    [knobRotation, startAngle, endAngle],
-  );
 
   useEffect(function readRotationOnLoad() {
     setValue(defaultValue);
   }, []);
 
   useEffect(
-    function setDimensionsOnResize() {
+    function setCalculatedValue() {
+      validateAngle();
+      const normalizedRotation = normalizeAngle(knobRotation - startAngle); // degrees rotated if startAngle is 0
+      const amountRotated = normalizedRotation / (endAngle - startAngle); // degrees rotated of knob as percentage
+      const currentValue = startValue + (endValue - startValue) * amountRotated;
+      if (snap) {
+        const snappedValue = Math.round(currentValue / step) * step;
+        setValue(snappedValue);
+        setKnobRotation(
+          startAngle + (endAngle - startAngle) * (snappedValue / endValue),
+        );
+      } else {
+        setValue(currentValue);
+        setKnobRotation(knobRotation);
+      }
+    },
+    [knobRotation, startAngle, endAngle],
+  );
+
+  useEffect(
+    function setPreventerDimensionsOnResize() {
       setWindowDimensions({ x: window.innerWidth, y: window.innerHeight });
     },
     [window.innerHeight, window.innerWidth],
@@ -123,12 +123,6 @@ export default function Knob({
       }}
       className="knob"
     >
-      <input
-        style={{ opacity: "0", position: "absolute", visibility: "hidden" }}
-        min={startValue}
-        max={endValue}
-        type="range"
-      />
       <div className="knob__outline"></div>
       <div style={{ rotate: `${knobRotation}deg` }} className="knob__indicator">
         .

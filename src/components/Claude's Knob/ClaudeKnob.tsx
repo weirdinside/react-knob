@@ -1,212 +1,219 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 
-interface KnobProps {
-  min?: number;
-  max?: number;
-  value?: number;
-  size?: number;
-  onChange?: (value: number) => void;
+interface ClaudeKnobProps {
+  // Range values
+  startValue: number;
+  endValue: number;
+  value: number;
+  setValue: (value: number) => void;
+  defaultValue?: number;
+
+  // Angle constraints
+  startAngle?: number; // Default 0
+  endAngle?: number; // Default 360
+
+  // Snapping behavior
+  snap?: boolean;
+  snapInterval?: number;
+
+  // Styling
+  size?: number; // Diameter in pixels
   color?: string;
+  backgroundColor?: string;
   showValue?: boolean;
   disabled?: boolean;
-  startAngle?: number;
-  endAngle?: number;
-  numTicks?: number;
-  step?: number;
+  label?: string;
+
+  // Optional callback
+  onChange?: (value: number) => void;
 }
 
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    userSelect: 'none' as const,
-  },
-  knobWrapper: {
-    position: 'relative' as const,
-    borderRadius: '50%',
-  },
-  knobWrapperDisabled: {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  },
-  knobWrapperEnabled: {
-    cursor: 'pointer',
-  },
-  knobBase: {
-    position: 'absolute' as const,
-    inset: 0,
-    borderRadius: '50%',
-    border: '4px solid #e5e7eb',
-    backgroundColor: 'white',
-    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-  },
-  indicator: {
-    position: 'absolute' as const,
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '2px',
-    height: '40%',
-  },
-  tick: {
-    position: 'absolute' as const,
-    width: '4px',
-    height: '12px',
-    left: '50%',
-    top: 0,
-    transformOrigin: 'bottom',
-  },
-  tickLine: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#d1d5db',
-  },
-  value: {
-    marginTop: '8px',
-    fontSize: '14px',
-    fontWeight: 500,
-  },
+const containerStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: "8px",
 };
 
-const ClaudeKnob: React.FC<KnobProps> = ({
-  min = 0,
-  max = 100,
-  value = 50,
+const labelStyle: React.CSSProperties = {
+  fontSize: "14px",
+  fontWeight: 500,
+};
+
+const valueStyle: React.CSSProperties = {
+  fontSize: "14px",
+  fontWeight: 500,
+};
+
+const ClaudeKnob: React.FC<ClaudeKnobProps> = ({
+  startValue,
+  endValue,
+  value,
+  setValue,
+  defaultValue = startValue,
+  startAngle = 0,
+  endAngle = 360,
+  snap = false,
+  snapInterval = 1,
   size = 100,
-  onChange = () => {},
-  color = '#2563eb',
+  color = "#2563eb",
+  backgroundColor = "#e5e7eb",
   showValue = true,
   disabled = false,
-  startAngle = -135,
-  endAngle = 135,
-  numTicks = 11,
-  step = 1
+  label,
+  onChange,
 }) => {
   const knobRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [rotation, setRotation] = useState(valueToAngle(value));
+  const [rotation, setRotation] = useState(0);
 
-  // Convert angle (degrees) to value
-  function angleToValue(angle: number): number {
-    // Normalize angle to the allowed range
-    while (angle < startAngle) angle += 360;
-    while (angle > endAngle) angle -= 360;
-    
-    // Clamp angle to the allowed range
-    angle = Math.max(startAngle, Math.min(endAngle, angle));
-    
-    // Convert to value
-    const percent = (angle - startAngle) / (endAngle - startAngle);
-    let newValue = min + percent * (max - min);
-    
-    // Apply stepping
-    newValue = Math.round(newValue / step) * step;
-    return Math.max(min, Math.min(max, newValue));
-  }
+  // Convert value to angle
+  const valueToAngle = (val: number): number => {
+    const valueRange = endValue - startValue;
+    const angleRange = endAngle - startAngle;
+    return ((val - startValue) / valueRange) * angleRange + startAngle;
+  };
 
-  // Convert value to angle (degrees)
-  function valueToAngle(value: number): number {
-    const percent = (value - min) / (max - min);
-    return startAngle + percent * (endAngle - startAngle);
-  }
+  // Convert angle to value
+  const angleToValue = (angle: number): number => {
+    const normalizedAngle = angle - startAngle;
+    const angleRange = endAngle - startAngle;
+    const valueRange = endValue - startValue;
+    let value = (normalizedAngle / angleRange) * valueRange + startValue;
 
-  // Calculate angle from center
-  function calculateAngle(clientX: number, clientY: number): number {
+    // Clamp value to range
+    value = Math.max(startValue, Math.min(endValue, value));
+
+    // Apply snapping if enabled
+    if (snap && snapInterval) {
+      value = Math.round(value / snapInterval) * snapInterval;
+    }
+
+    return value;
+  };
+
+  // Calculate rotation from mouse/touch position
+  const getRotationFromPoint = (clientX: number, clientY: number): number => {
     if (!knobRef.current) return 0;
-    
-    const rect = knobRef.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    
-    return Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI + 90;
-  }
 
-  useEffect(() => {
-    setRotation(valueToAngle(value));
-  }, [value]);
+    const knobRect = knobRef.current.getBoundingClientRect();
+    const knobCenterX = knobRect.left + knobRect.width / 2;
+    const knobCenterY = knobRect.top + knobRect.height / 2;
 
+    const angle = Math.atan2(clientY - knobCenterY, clientX - knobCenterX);
+    let degrees = angle * (180 / Math.PI) + 90; // Convert to degrees and offset
+
+    // Normalize to 0-360 range
+    degrees = degrees < 0 ? degrees + 360 : degrees;
+
+    // Clamp to angle constraints
+    degrees = Math.max(startAngle, Math.min(endAngle, degrees));
+
+    return degrees;
+  };
+
+  // Handle mouse/touch movement
+  const handleMove = (clientX: number, clientY: number) => {
+    if (!isDragging || disabled) return;
+
+    const newRotation = getRotationFromPoint(clientX, clientY);
+    setRotation(newRotation);
+
+    const newValue = angleToValue(newRotation);
+    setValue(newValue);
+    onChange?.(newValue);
+  };
+
+  // Mouse event handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (disabled) return;
-    
-    const newAngle = calculateAngle(e.clientX, e.clientY);
-    const newValue = angleToValue(newAngle);
-    
     setIsDragging(true);
-    setRotation(newAngle);
-    onChange(newValue);
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    handleMove(e.clientX, e.clientY);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    const newAngle = calculateAngle(e.clientX, e.clientY);
-    const newValue = angleToValue(newAngle);
-    
-    setRotation(newAngle);
-    onChange(newValue);
+    handleMove(e.clientX, e.clientY);
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
   };
 
-  const getTicks = () => {
-    return Array.from({ length: numTicks }).map((_, i) => {
-      const tickRotation = startAngle + (i * (endAngle - startAngle) / (numTicks - 1));
-      return tickRotation;
-    });
+  // Touch event handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (disabled) return;
+    setIsDragging(true);
+    handleMove(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    handleMove(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  // Set up event listeners
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("touchmove", handleTouchMove);
+      window.addEventListener("touchend", handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleMouseUp);
+    };
+  }, [isDragging]);
+
+  // Update rotation when value changes externally
+  useEffect(() => {
+    setRotation(valueToAngle(value));
+  }, [value]);
+
+  // Initialize with default value
+  useEffect(() => {
+    if (defaultValue !== undefined) {
+      setValue(defaultValue);
+    }
+  }, []);
+
+  const knobStyle: React.CSSProperties = {
+    width: size,
+    height: size,
+    backgroundColor,
+    borderRadius: "50%",
+    position: "relative",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.5 : 1,
+    touchAction: "none",
+  };
+
+  const indicatorStyle: React.CSSProperties = {
+    position: "absolute",
+    width: "8px",
+    height: "40%",
+    backgroundColor: color,
+    borderRadius: "4px",
+    top: "8px",
+    left: "50%",
+    transform: `translateX(-50%) rotate(${rotation}deg)`,
+    transformOrigin: "bottom",
   };
 
   return (
-    <div style={styles.container}>
+    <div style={containerStyle}>
+      {label && <label style={labelStyle}>{label}</label>}
       <div
         ref={knobRef}
-        style={{
-          ...styles.knobWrapper,
-          ...(disabled ? styles.knobWrapperDisabled : styles.knobWrapperEnabled),
-          width: size,
-          height: size,
-        }}
+        style={knobStyle}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
       >
-        <div
-          style={{
-            ...styles.knobBase,
-            transform: `rotate(${rotation}deg)`,
-          }}
-        >
-          <div
-            style={{
-              ...styles.indicator,
-              backgroundColor: color,
-            }}
-          />
-        </div>
-        
-        {getTicks().map((tickRotation, i) => (
-          <div
-            key={i}
-            style={{
-              ...styles.tick,
-              transform: `translateX(-50%) rotate(${tickRotation}deg)`,
-            }}
-          >
-            <div style={styles.tickLine} />
-          </div>
-        ))}
+        <div style={indicatorStyle} />
       </div>
-      
-      {showValue && (
-        <div style={styles.value}>
-          {Math.round(value)}
-        </div>
-      )}
+      {showValue && <div style={valueStyle}>{value.toFixed(snap ? 0 : 1)}</div>}
     </div>
   );
 };
